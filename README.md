@@ -34,7 +34,7 @@ The skill walks through all setup interactively — output directory, conversion
 | `hook.js` | PreCompact/SessionEnd/SessionStart hook — converts session, restores context, updates qmd index |
 | `lib.js` | Shared utilities: config, pgrep guard, qmd update+embed, session file lookup, turn extraction |
 | `refresh.js` | Outputs CLAUDE.md files + recent turns from multiple sessions to stdout |
-| `config.json` | Persisted output directory |
+| `config.json` | Persisted output directory + `loadContextOnStartup` flag |
 
 ## Usage
 
@@ -54,7 +54,7 @@ Four Claude Code hooks keep the index current and restore context (configured in
 - **PreCompact** — converts session before context compaction, runs `qmd update && qmd embed`
 - **SessionEnd** — converts session on exit, runs `qmd update && qmd embed`
 - **SessionStart (compact/resume/clear)** — converts the session, then outputs both CLAUDE.md files and the last ~50 exchanges (from multiple recent sessions, sorted by cwd match, capped at 14,000 characters) to stdout so Claude receives instructions and conversation context after compaction.
-- **SessionStart (startup)** — outputs both CLAUDE.md files to stdout (no session conversion or recent turns).
+- **SessionStart (startup)** — outputs CLAUDE.md files to stdout. If `loadContextOnStartup` is enabled in config.json, also outputs the last ~50 exchanges (same as compact/resume/clear, but without session conversion).
 
 All hooks use `pgrep -f "qmd.*embed"` to skip embed if another session's embed is already running.
 
@@ -84,16 +84,18 @@ All hooks use `pgrep -f "qmd.*embed"` to skip embed if another session's embed i
                 stdin: { session_id, hook_event_name, source, cwd }
                              │
                              ▼
-                ┌────────────────────────┐
-                │       hook.js          │
-                │                        │
-                │  reads stdin JSON      │
-                │  reads config.json     │
-                │    → { outputDir }     │
-                │                        │
-                │  branches on           │
-                │  hook_event_name       │
-                └───────┬────────┬───────┘
+                ┌────────────────────────────┐
+                │         hook.js            │
+                │                            │
+                │  reads stdin JSON          │
+                │  reads config.json         │
+                │    → { outputDir,          │
+                │        loadContextOnStartup│
+                │      }                     │
+                │                            │
+                │  branches on               │
+                │  hook_event_name           │
+                └───────┬────────┬───────────┘
                         │        │
         ┌───────────────┘        └───────────────┐
         │                                        │
@@ -114,54 +116,30 @@ All hooks use `pgrep -f "qmd.*embed"` to skip embed if another session's embed i
           │                          │    including startup)     │
           ▼                          └────────────┬─────────────┘
 ┌─────────────────────┐                          │
-│ 2. updateQmd()      │                          ▼
-│                     │              ┌──────────────────────────┐
-│  a. which qmd       │              │ if compact/resume/clear: │
-│  b. qmd collection  │              │                          │
-│     list (check     │              │ 2. convertSession()      │
-│     claude-sessions)│              │    node convert-          │
-│  c. qmd update      │              │    sessions.js            │
-│  d. pgrep qmd embed │              │    <outputDir>            │
-│     (skip if running)│              │    --session <id>         │
-│  e. qmd embed       │              │                          │
-└─────────────────────┘              │ 3. collectRecentTurns()  │
-                                     │    walks outputDir       │
-                                     │    finds *.md (no subs)  │
-                                     │    sorts: cwd-matching   │
-                                     │    project first (desc), │
-                                     │    then all others (desc)│
-                                     │    collects turns from   │
-                                     │    multiple sessions     │
-                                     │    until:                │
-                                     │      100 turns (50 exch) │
-                                     │      OR 14,000 chars     │
-                                     │                          │
-                                     │    → stdout              │
-                                     └────────────┬─────────────┘
-                                                  │
-                                                  ▼
-                                     ┌──────────────────────────┐
-                                     │ stdout injected into     │
-                                     │ Claude's context window  │
-                                     │                          │
-                                     │ Contents:                │
-                                     │ ┌──────────────────────┐ │
-                                     │ │ # Global CLAUDE.md   │ │
-                                     │ │ (full contents)      │ │
-                                     │ │ ---                  │ │
-                                     │ │ # Project CLAUDE.md  │ │
-                                     │ │ (full contents)      │ │
-                                     │ │ ---                  │ │
-                                     │ │ [Context restored:   │ │
-                                     │ │  ~14 exchanges from  │ │
-                                     │ │  4 sessions]         │ │
-                                     │ │                      │ │
-                                     │ │ ## User              │ │
-                                     │ │ ...                  │ │
-                                     │ │ ## Claude            │ │
-                                     │ │ ...                  │ │
-                                     │ └──────────────────────┘ │
-                                     └──────────────────────────┘
+│ 2. updateQmd()      │               ┌──────────┴──────────┐
+│                     │               │                     │
+│  a. which qmd       │               ▼                     ▼
+│  b. qmd collection  │  ┌─────────────────────┐ ┌──────────────────────┐
+│     list (check     │  │ compact/resume/clear │ │ startup              │
+│     claude-sessions)│  │                      │ │ (if loadContext-     │
+│  c. qmd update      │  │ 2. convertSession() │ │  OnStartup=true)     │
+│  d. pgrep qmd embed │  │    node convert-     │ │                      │
+│     (skip if running)│  │    sessions.js       │ │ (no convertSession)  │
+│  e. qmd embed       │  │    <outputDir>       │ │                      │
+└─────────────────────┘  │    --session <id>    │ │ 2. collectRecentTurns│
+                          │                      │ │    → stdout          │
+                          │ 3. collectRecentTurns│ └──────────────────────┘
+                          │    → stdout          │
+                          └──────────────────────┘
+
+collectRecentTurns():
+  walks outputDir, finds *.md
+  (no subagents), sorts:
+  cwd-matching project first
+  (desc), then others (desc).
+  Collects turns from multiple
+  sessions until 100 turns
+  (50 exchanges) or 14,000 chars.
 
 
 /qmd-sessions refresh

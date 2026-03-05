@@ -202,7 +202,18 @@ Check each hook:
 
 #### 4g. CLAUDE.md qmd search guidance
 Read `~/.claude/CLAUDE.md` and check for a "Session Search" section.
-- If present: "qmd search guidance already in CLAUDE.md. All setup checks complete."
+- If present: "qmd search guidance already in CLAUDE.md."
+  > "Continue to next check?"
+
+#### 4h. Load context on startup
+Ask: "Would you like to automatically load the last ~50 exchanges when starting a new session? This outputs recent conversation context to Claude on every fresh startup, similar to what `/qmd-sessions refresh` does manually."
+
+Read `~/.claude/skills/qmd-sessions/config.json` and check for a `loadContextOnStartup` key.
+- If user says yes:
+  - If already set to `true`: "`loadContextOnStartup` is already enabled in config.json. All setup checks complete."
+  - Otherwise: set `"loadContextOnStartup": true` in config.json. "Enabled. All setup checks complete."
+- If user says no:
+  - Set `"loadContextOnStartup": false` in config.json. "Disabled. All setup checks complete."
 
 Wait for user acknowledgement before ending.
 - If not: "I'd like to add qmd search guidance to `~/.claude/CLAUDE.md` so Claude uses qmd for session search. This appends:"

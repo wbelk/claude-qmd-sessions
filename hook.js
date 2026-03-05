@@ -66,10 +66,17 @@ function handleSessionStart (data, config, sessionId) {
     process.stdout.write(claudeMd)
   }
 
-  // For compact/resume/clear: also convert session and output recent turns
+  // For compact/resume/clear: convert session and output recent turns
   if (source === 'compact' || source === 'resume' || source === 'clear') {
     convertSession(config, sessionId)
 
+    if (claudeMd) process.stdout.write('\n\n---\n\n')
+
+    const context = lib.collectRecentTurns(config.outputDir, cwd)
+    if (context) {
+      process.stdout.write(context)
+    }
+  } else if (source === 'startup' && config.loadContextOnStartup) {
     if (claudeMd) process.stdout.write('\n\n---\n\n')
 
     const context = lib.collectRecentTurns(config.outputDir, cwd)
