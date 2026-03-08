@@ -59,31 +59,59 @@ function updateQmd () {
 
 function handleSessionStart (data, config, sessionId) {
   const source = data.source
-  // Output CLAUDE.md files for all sources
   const cwd = data.cwd || process.cwd()
+
+  var contextBuf = ''
+  var statusLines = []
+
+  // Load CLAUDE.md files
   const claudeMd = lib.loadClaudeMd(cwd)
   if (claudeMd) {
-    process.stdout.write(claudeMd)
+    contextBuf += claudeMd
+    statusLines.push('[qmd-sessions] Loaded CLAUDE.md (global + project)')
   }
 
-  // For compact/resume/clear: convert session and output recent turns
+  // For compact/resume/clear: convert session and load recent turns
   if (source === 'compact' || source === 'resume' || source === 'clear') {
     convertSession(config, sessionId)
-
-    if (claudeMd) process.stdout.write('\n\n---\n\n')
+    if (claudeMd) contextBuf += '\n---\n\n'
 
     const context = lib.collectRecentTurns(config.outputDir, cwd)
     if (context) {
-      process.stdout.write(context)
+      contextBuf += context
+      var match = context.match(/~(\d+) exchanges from (\d+) session/)
+      if (match) {
+        statusLines.push('[qmd-sessions] Loaded ' + match[1] + ' exchanges from ' + match[2] + ' session' + (match[2] !== '1' ? 's' : ''))
+      }
+    } else {
+      statusLines.push('[qmd-sessions] No recent session context found')
     }
   } else if (source === 'startup' && config.loadContextOnStartup) {
-    if (claudeMd) process.stdout.write('\n\n---\n\n')
+    if (claudeMd) contextBuf += '\n---\n\n'
 
     const context = lib.collectRecentTurns(config.outputDir, cwd)
     if (context) {
-      process.stdout.write(context)
+      contextBuf += context
+      var match = context.match(/~(\d+) exchanges from (\d+) session/)
+      if (match) {
+        statusLines.push('[qmd-sessions] Loaded ' + match[1] + ' exchanges from ' + match[2] + ' session' + (match[2] !== '1' ? 's' : ''))
+      }
+    } else {
+      statusLines.push('[qmd-sessions] No recent session context found')
+    }
+  } else if (source === 'startup') {
+    statusLines.push('[qmd-sessions] loadContextOnStartup disabled, skipping context load')
+  }
+
+  // Output JSON with systemMessage (user-visible) and additionalContext (Claude context)
+  var output = {
+    systemMessage: statusLines.join('\n'),
+    hookSpecificOutput: {
+      hookEventName: 'SessionStart',
+      additionalContext: contextBuf
     }
   }
+  process.stdout.write(JSON.stringify(output))
 }
 
 function handlePreCompactOrEnd (config, sessionId) {
