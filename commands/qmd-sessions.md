@@ -194,7 +194,8 @@ Check each hook:
   {
     "hooks": {
       "PreCompact": [{ "hooks": [{ "type": "command", "command": "node ~/.claude/skills/qmd-sessions/hook.js" }] }],
-      "SessionEnd": [{ "hooks": [{ "type": "command", "command": "node ~/.claude/skills/qmd-sessions/hook.js" }] }]
+      "SessionEnd": [{ "hooks": [{ "type": "command", "command": "node ~/.claude/skills/qmd-sessions/hook.js" }] }],
+      "SessionStart": [{ "hooks": [{ "type": "command", "command": "node ~/.claude/skills/qmd-sessions/hook.js" }] }]
     }
   }
   ```
