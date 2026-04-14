@@ -46,14 +46,9 @@ function convertSession (config, sessionId) {
   }
 }
 
-function updateQmd () {
+function updateQmd (config) {
   if (!lib.qmdAvailable()) return
-  try {
-    const collections = cp.execSync('qmd collection list', { encoding: 'utf8', timeout: 10000 })
-    if (collections.indexOf('claude-sessions') === -1) return
-  } catch (e) {
-    return
-  }
+  if (!lib.qmdCollectionExists(config.qmdCollectionName || 'claude-sessions')) return
   lib.runUpdateAndEmbed()
 }
 
@@ -76,7 +71,13 @@ function handleSessionStart (data, config, sessionId) {
     convertSession(config, sessionId)
     if (claudeMd) contextBuf += '\n---\n\n'
 
-    const context = lib.collectRecentTurns(config.outputDir, cwd)
+    const context = lib.collectRecentTurns(
+      config.outputDir,
+      cwd,
+      config.maxTurns || 100,
+      config.maxContextChars || 14000,
+      config.qmdCollectionName
+    )
     if (context) {
       contextBuf += context
       var match = context.match(/~(\d+) exchanges from (\d+) session/)
@@ -89,7 +90,13 @@ function handleSessionStart (data, config, sessionId) {
   } else if (source === 'startup' && config.loadContextOnStartup) {
     if (claudeMd) contextBuf += '\n---\n\n'
 
-    const context = lib.collectRecentTurns(config.outputDir, cwd)
+    const context = lib.collectRecentTurns(
+      config.outputDir,
+      cwd,
+      config.maxTurns || 100,
+      config.maxContextChars || 14000,
+      config.qmdCollectionName
+    )
     if (context) {
       contextBuf += context
       var match = context.match(/~(\d+) exchanges from (\d+) session/)
@@ -116,5 +123,5 @@ function handleSessionStart (data, config, sessionId) {
 
 function handlePreCompactOrEnd (config, sessionId) {
   convertSession(config, sessionId)
-  updateQmd()
+  updateQmd(config)
 }

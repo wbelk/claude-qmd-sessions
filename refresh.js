@@ -18,7 +18,13 @@ if (claudeMd) {
 }
 
 // Output recent turns from last N sessions
-const context = lib.collectRecentTurns(config.outputDir, process.cwd())
+const context = lib.collectRecentTurns(
+  config.outputDir,
+  process.cwd(),
+  config.maxTurns || 100,
+  config.maxContextChars || 14000,
+  config.qmdCollectionName
+)
 if (context) {
   process.stdout.write(context)
 } else {

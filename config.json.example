@@ -1,0 +1,7 @@
+{
+  "outputDir": "/absolute/path/to/your/claude-session-markdown",
+  "qmdCollectionName": "claude-sessions",
+  "loadContextOnStartup": true,
+  "maxTurns": 100,
+  "maxContextChars": 14000
+}
