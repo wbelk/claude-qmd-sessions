@@ -45,7 +45,7 @@ The user should feel in control at all times.
 
 **Formatting rule:** Confirmation questions (e.g., "Continue?") must always be on their own line, never appended to status text.
 
-**One exception:** The hooks (`hook.js`, shared logic in `lib.js`) run automatically — there is no user to prompt at that point. This is by design. `hook.js` handles PreCompact and SessionEnd (converts sessions, updates claude-sessions index). None of these hooks delete files.
+**One exception:** The hooks (`hook.js`, shared logic in `lib.js`) run automatically — there is no user to prompt at that point. This is by design. `hook.js` handles PreCompact and SessionEnd (converts sessions, updates the configured qmd collection, default `claude-sessions`). None of these hooks delete files.
 
 ## Steps
 
@@ -149,7 +149,7 @@ Check: `which qmd`
 #### 4c. Session transcript collection
 **If qmd is not installed or not working, stop and report:** "qmd is required but not available. Cannot continue setup. Completed: Steps 1-3, 4a-4b. Not completed: Steps 4c-4g."
 Check: `qmd collection list`
-- If claude-sessions collection exists: "qmd collection `claude-sessions` already configured, pointing at `<path>`."
+- If the configured collection exists: "qmd collection `<name>` already configured, pointing at `<path>`."
   > "Continue to next check?"
 - If not: "I'd like to add your output directory as a qmd collection so sessions are searchable. This will run:"
   ```
@@ -182,7 +182,7 @@ Read `~/.claude.json` and check for `mcpServers.qmd`.
 #### 4f. Session conversion hooks
 Read `~/.claude/settings.json` and check for PreCompact and SessionEnd hooks that run `hook.js`.
 
-Two hooks work together to keep the claude-sessions index current (all synchronous):
+Two hooks work together to keep the configured session collection current (all synchronous):
 - **PreCompact** → converts current session to markdown before context compaction, runs qmd update, then checks `pgrep -f "qmd.*embed"` and runs embed if none running
 - **SessionEnd** → final conversion when session ends, runs qmd update, then checks pgrep and runs embed if none running
 

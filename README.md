@@ -34,7 +34,8 @@ The skill walks through all setup interactively — output directory, conversion
 | `hook.js` | PreCompact/SessionEnd/SessionStart hook — converts session, restores context, updates qmd index |
 | `lib.js` | Shared utilities: config, pgrep guard, qmd update+embed, session file lookup, turn extraction |
 | `refresh.js` | Outputs CLAUDE.md files + recent turns from multiple sessions to stdout |
-| `config.json` | Persisted output directory + `loadContextOnStartup` flag |
+| `config.json` | Persisted output directory, QMD collection name, and restore limits |
+| `config.json.example` | Example config for manual installs |
 
 ## Usage
 
@@ -43,7 +44,7 @@ The skill walks through all setup interactively — output directory, conversion
 /qmd-sessions refresh   # Load CLAUDE.md files + last ~50 exchanges into context
 ```
 
-`refresh` outputs both CLAUDE.md files and the last ~50 exchanges (100 turns, capped at 14,000 characters) collected from recent sessions into context. Useful for manually restoring context in a fresh session.
+`refresh` outputs both CLAUDE.md files and the last ~50 exchanges (100 turns, capped at 14,000 characters) collected from recent sessions into context. It prefers the configured QMD collection for retrieval and falls back to raw markdown scanning only if QMD is unavailable. Useful for manually restoring context in a fresh session.
 
 The setup wizard walks through interactively: output directory, conversion, verification, then checks for Bun, qmd, collection, embeddings, MCP server, hooks, and CLAUDE.md guidance.
 
@@ -53,8 +54,8 @@ Four Claude Code hooks keep the index current and restore context (configured in
 
 - **PreCompact** — converts session before context compaction, runs `qmd update && qmd embed`
 - **SessionEnd** — converts session on exit, runs `qmd update && qmd embed`
-- **SessionStart (compact/resume/clear)** — converts the session, then outputs both CLAUDE.md files and the last ~50 exchanges (from multiple recent sessions, sorted by cwd match, capped at 14,000 characters) to stdout so Claude receives instructions and conversation context after compaction.
-- **SessionStart (startup)** — outputs CLAUDE.md files to stdout. If `loadContextOnStartup` is enabled in config.json, also outputs the last ~50 exchanges (same as compact/resume/clear, but without session conversion).
+- **SessionStart (compact/resume/clear)** — converts the session, then outputs both CLAUDE.md files and the last ~50 exchanges (from multiple recent sessions, sorted by cwd match, capped at 14,000 characters) to stdout so Claude receives instructions and conversation context after compaction. Retrieval prefers the QMD index.
+- **SessionStart (startup)** — outputs CLAUDE.md files to stdout. If `loadContextOnStartup` is enabled in config.json, also outputs the last ~50 exchanges (same as compact/resume/clear, but without session conversion). Retrieval prefers the QMD index.
 
 All hooks use `pgrep -f "qmd.*embed"` to skip embed if another session's embed is already running.
 
@@ -121,7 +122,7 @@ All hooks use `pgrep -f "qmd.*embed"` to skip embed if another session's embed i
 │  a. which qmd       │               ▼                     ▼
 │  b. qmd collection  │  ┌─────────────────────┐ ┌──────────────────────┐
 │     list (check     │  │ compact/resume/clear │ │ startup              │
-│     claude-sessions)│  │                      │ │ (if loadContext-     │
+│     qmdCollectionName)│ │                      │ │ (if loadContext-     │
 │  c. qmd update      │  │ 2. convertSession() │ │  OnStartup=true)     │
 │  d. pgrep qmd embed │  │    node convert-     │ │                      │
 │     (skip if running)│  │    sessions.js       │ │ (no convertSession)  │
@@ -133,10 +134,13 @@ All hooks use `pgrep -f "qmd.*embed"` to skip embed if another session's embed i
                           └──────────────────────┘
 
 collectRecentTurns():
-  walks outputDir, finds *.md
-  (no subagents), sorts:
-  cwd-matching project first
-  (desc), then others (desc).
+  prefers qmd ls/get against the
+  configured qmd collection,
+  scoped to the current project.
+  If qmd is unavailable or empty,
+  falls back to walking outputDir,
+  sorting cwd-matching project
+  files first (desc), then others.
   Collects turns from multiple
   sessions until 100 turns
   (50 exchanges) or 14,000 chars.
@@ -161,3 +165,22 @@ Same output as SessionStart hook.
 Used to manually load context
 in a fresh session (startup).
 ```
+
+## Config
+
+Example:
+
+```json
+{
+  "outputDir": "/absolute/path/to/your/claude-session-markdown",
+  "qmdCollectionName": "claude-sessions",
+  "loadContextOnStartup": true,
+  "maxTurns": 100,
+  "maxContextChars": 14000
+}
+```
+
+Notes:
+
+- `qmdCollectionName` defaults to `claude-sessions` for backward compatibility, but can point at any QMD collection.
+- restore accepts `## User`, `## Claude`, `## Codex`, and `## System`, which makes shared Claude/Codex corpora work cleanly when both exporters target the same markdown root.
