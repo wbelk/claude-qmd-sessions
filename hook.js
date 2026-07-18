@@ -54,7 +54,14 @@ function updateQmd () {
   } catch (e) {
     return
   }
-  lib.runUpdateAndEmbed()
+  // Run the slow index update + embed detached so SessionEnd doesn't block
+  // Claude Code's shutdown window. `qmd embed` can take minutes (and downloads
+  // models on first run); blocking here gets the hook killed as "Hook cancelled".
+  const child = cp.spawn('sh', ['-c', 'qmd update && (pgrep -f "qmd.*embed" >/dev/null || qmd embed)'], {
+    detached: true,
+    stdio: 'ignore'
+  })
+  child.unref()
 }
 
 function handleSessionStart (data, config, sessionId) {
