@@ -2,6 +2,7 @@
 
 const fs = require('fs')
 const path = require('path')
+const lib = require('./lib')
 
 const CLAUDE_PROJECTS = path.join(process.env.HOME, '.claude', 'projects')
 
@@ -22,6 +23,8 @@ if (!OUTPUT_DIR) {
   console.error('Usage: node convert-sessions.js <output-directory> [--session <session-id>]')
   process.exit(1)
 }
+
+OUTPUT_DIR = lib.expandTilde(OUTPUT_DIR)
 
 function projectName (cwd, dirName) {
   // Derive project name from the real cwd path (last 2 segments joined by -)

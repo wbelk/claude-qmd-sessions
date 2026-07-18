@@ -4,9 +4,21 @@ const cp = require('child_process')
 
 const CONFIG_PATH = path.join(__dirname, 'config.json')
 
+// Node's fs/path never expand a leading ~ the way a shell does. Without this, a
+// configured outputDir like "~/claude-sessions" is treated as a relative path
+// and fs.mkdirSync creates a literal "~" directory in the current working dir.
+function expandTilde (p) {
+  if (typeof p !== 'string') return p
+  if (p === '~') return process.env.HOME
+  if (p.startsWith('~/')) return path.join(process.env.HOME, p.slice(2))
+  return p
+}
+
 function readConfig () {
   try {
-    return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'))
+    const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'))
+    if (config && config.outputDir) config.outputDir = expandTilde(config.outputDir)
+    return config
   } catch (e) {
     return null
   }
@@ -158,4 +170,4 @@ function loadClaudeMd (cwd) {
   return parts.join('\n\n---\n\n')
 }
 
-module.exports = { readConfig, isEmbedRunning, qmdAvailable, runUpdateAndEmbed, collectRecentTurns, loadClaudeMd }
+module.exports = { readConfig, expandTilde, isEmbedRunning, qmdAvailable, runUpdateAndEmbed, collectRecentTurns, loadClaudeMd }
