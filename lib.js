@@ -44,7 +44,7 @@ function runUpdateAndEmbed () {
 
 function cwdToProject (cwd, outputDir) {
   if (!cwd || !outputDir) return null
-  const cwdDashed = cwd.replace(/\//g, '-')
+  const cwdDashed = cwd.replace(/[\\/]/g, '-')
   let dirs
   try { dirs = fs.readdirSync(outputDir) } catch (e) { return null }
   for (let i = 0; i < dirs.length; i++) {
