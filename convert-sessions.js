@@ -26,7 +26,8 @@ if (!OUTPUT_DIR) {
 function projectName (cwd, dirName) {
   // Derive project name from the real cwd path (last 2 segments joined by -)
   if (cwd) {
-    const segments = cwd.split('/').filter(function (s) { return s.length > 0 })
+    // Split on both separators: Windows sessions record cwd as "c:\Projects\App".
+    const segments = cwd.split(/[\\/]/).filter(function (s) { return s.length > 0 })
     if (segments.length >= 2) return segments[segments.length - 2] + '-' + segments[segments.length - 1]
     if (segments.length === 1) return segments[0]
   }
